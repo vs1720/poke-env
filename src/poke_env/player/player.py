@@ -194,6 +194,8 @@ class Player(PlayerNetwork, ABC):
         :param split_message: The received battle message.
         :type split_message: str
         """
+        #print(split_messages)
+        #print("***")
         # Battle messages can be multiline
         if (
             len(split_messages) > 1
@@ -207,6 +209,7 @@ class Player(PlayerNetwork, ABC):
             battle = await self._get_battle(split_messages[0][0])
 
         for split_message in split_messages[1:]:
+            #print("in the else")
             if len(split_message) <= 1:
                 continue
             elif split_message[1] in self.MESSAGES_TO_IGNORE:
@@ -290,6 +293,10 @@ class Player(PlayerNetwork, ABC):
                     self.logger.critical("Unexpected error message: %s", split_message)
             elif split_message[1] == "turn":
                 battle.turn = int(split_message[2])
+                try:
+                    battle._parse_message(split_message)
+                except UnexpectedEffectException as e:
+                    self.logger.exception(e)
                 await self._handle_battle_request(battle)
             elif split_message[1] == "teampreview":
                 await self._handle_battle_request(battle, from_teampreview_request=True)

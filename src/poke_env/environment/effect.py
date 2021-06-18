@@ -114,6 +114,7 @@ class Effect(Enum):
     QUASH = auto()
     QUICK_CLAW = auto()
     QUICK_GUARD = auto()
+    QUICK_DRAW = auto()
     ROUGH_SKIN = auto()
     SAFEGUARD = auto()
     SAFETY_GOGGLES = auto()

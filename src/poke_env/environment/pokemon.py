@@ -44,6 +44,7 @@ class Pokemon:
         "_type_1",
         "_type_2",
         "_weightkg",
+        "_dexnum"
     )
 
     def __init__(
@@ -99,6 +100,8 @@ class Pokemon:
         elif species:
             self._update_from_pokedex(species)
 
+    
+    
     def __repr__(self) -> str:
         return self.__str__()
 
@@ -276,6 +279,7 @@ class Pokemon:
         self._possible_abilities = dex_entry["abilities"]
         self._heightm = dex_entry["heightm"]
         self._weightkg = dex_entry["weightkg"]
+        self._dexnum = dex_entry["num"]
 
     def _update_from_details(self, details: str) -> None:
         if details == self._last_details:
@@ -589,6 +593,11 @@ class Pokemon:
         return self._last_request.get(
             "stats", {"atk": None, "def": None, "spa": None, "spd": None, "spe": None}
         )
+
+
+    @stats.setter
+    def set_stats(self, stat):
+        self.stats = stat
 
     @property
     def status(self) -> Optional[Status]:

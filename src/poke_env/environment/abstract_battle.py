@@ -15,6 +15,99 @@ from poke_env.environment.side_condition import SideCondition
 from poke_env.environment.weather import Weather
 from poke_env.utils import to_id_str
 
+from copy import deepcopy
+
+
+class Turn():
+    def __init__(self, message):
+        self.raw = message
+        self._first_actor = None
+        self._second_actor = None
+        self._first_action = None
+        self._second_action = None
+        self._first_move = None
+        self._second_move = None
+        self._first_mods = []
+        self._second_mods = []
+        self._first_health_enter = None
+        self._second_health_enter = None
+        fmove = False
+        fmode = False
+        smove = False
+        smode = False
+        for split_message in self.raw:
+            #print(split_message)
+            if split_message[1] == "move":
+                #print(split_message)
+                if len(split_message) == 5:
+                    pokemon, move, target = split_message[2:5]
+                    #print("bro", split_message[4])
+                else:
+                    pokemon, move = split_message[2:4]
+                    if split_message[5] == "[still]" or split_message[5] == "[miss]":
+                        target = split_message[4]
+                    else:
+                        target = pokemon
+                #print(pokemon, move, target)
+                if not fmove:
+                    fmove = True
+                    fmode = True
+                    self._first_action = "move"
+                    self._first_move = move
+                    self._first_actor = pokemon.split(":")[0]
+                elif not smove:
+                    smove = True
+                    smode = True
+                    fmode = False
+                    self._second_action = "move"
+                    self._second_move = move
+                    self._second_actor = pokemon.split(":")[0]
+            elif split_message[1] == "switch":
+                pokemon = split_message[2]
+                #print(split_message)
+                if not fmove:
+                    fmove = True
+                    fmode = True
+                    self._first_action = "switch"
+                    raw = split_message[-1]
+                    if "from" in raw:
+                        raw = split_message[-2]
+                    #print("yo", raw)
+                    rawNums = raw.split("/")
+                    rawNums[1] = rawNums[1].split()[0]
+                    prop = float(rawNums[0])/float(rawNums[1])
+                    self._first_health_enter = prop
+                    self._first_actor = pokemon.split(":")[0]
+                elif not smove:
+                    smove = True
+                    smode = True
+                    fmode = False
+                    self._second_action = "switch"
+                    raw = split_message[-1]
+                    if "from" in raw:
+                        raw = split_message[-2]
+                    #print("yo1",raw)
+                    rawNums = raw.split("/")
+                    rawNums[1] = rawNums[1].split()[0]
+                    prop = float(rawNums[0])/float(rawNums[1])
+                    self._second_health_enter = prop
+                    self._second_actor = pokemon.split(":")[0]
+            elif split_message[1] == "-supereffective" or split_message[1] == "-resisted" or split_message[1] == "-immune":
+                if fmode:
+                    self._first_mods.append(split_message[1])
+                if smode:
+                    self._second_mods.append(split_message[1])
+        self.info = {}
+        self.info["actor1"] = self._first_actor
+        self.info["actor2"] = self._second_actor
+        self.info["action1"] = self._first_action
+        self.info["action2"] = self._second_action
+        self.info["move1"] = self._first_move
+        self.info["move2"] = self._second_move
+        self.info["mods1"] = self._first_mods
+        self.info["mods2"] = self._second_mods
+        self.info["startHealth1"] = self._first_health_enter
+        self.info["startHealth2"] = self._second_health_enter
 
 class AbstractBattle(ABC):
     MESSAGES_TO_IGNORE = {
@@ -144,6 +237,11 @@ class AbstractBattle(ABC):
         self._team: Dict[str, Pokemon] = {}
         self._opponent_team: Dict[str, Pokemon] = {}
 
+        #custom archival attributes
+        self._prevMess = []
+        self._currMess = []
+        self.turnHist = []
+
     def get_pokemon(
         self,
         identifier: str,
@@ -223,6 +321,9 @@ class AbstractBattle(ABC):
         self._fields.add(field)
 
     def _parse_message(self, split_message: List[str]) -> None:
+        #print(split_message)
+        #print("************")
+        self._currMess.append(split_message)
         if split_message[1] in self.MESSAGES_TO_IGNORE:
             return
         elif split_message[1] in ["drag", "switch"]:
@@ -231,12 +332,24 @@ class AbstractBattle(ABC):
         elif split_message[1] == "-damage":
             pokemon, hp_status = split_message[2:4]
             self.get_pokemon(pokemon)._damage(hp_status)
+        elif split_message[1] == "turn":
+            #print("ENDING STEP", split_message[2])
+            #print(self._currMess)
+            self._prevMess = deepcopy(self._currMess)
+            self.turnHist.append(Turn(self._prevMess).info)
+            self._currMess = []
         elif split_message[1] == "move":
-            if len(split_message) == 6:
+            #print(split_message)
+            if len(split_message) == 5:
                 pokemon, move, target = split_message[2:5]
+                #print("bro", split_message[4])
             else:
                 pokemon, move = split_message[2:4]
-                target = pokemon
+                if split_message[5] == "[still]" or split_message[5] == "[miss]":
+                    target = split_message[4]
+                else:
+                    target = pokemon
+            #print(pokemon, move, target)
             self.get_pokemon(pokemon)._moved(move)
         elif split_message[1] == "-heal":
             pokemon, hp_status = split_message[2:4]
